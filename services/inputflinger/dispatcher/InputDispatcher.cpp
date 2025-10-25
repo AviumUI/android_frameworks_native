@@ -4606,9 +4606,7 @@ void InputDispatcher::notifyMotion(const NotifyMotionArgs& args) {
 
     ui::Transform displayTransform;
     mLock.lock();
-    if (const auto it = mDisplayInfos.find(args.displayId); it != mDisplayInfos.end()) {
-        displayTransform = it->second.transform;
-    }
+    displayTransform = mWindowInfos.getDisplayTransform(args.displayId);
     mLock.unlock();
 
     MotionEvent extEvent;
@@ -4669,7 +4667,7 @@ void InputDispatcher::notifyMotion(const NotifyMotionArgs& args) {
         }
 
         if (shouldSendMotionToInputFilterLocked(args)) {
-            ui::Transform displayTransform = mWindowInfos.getDisplayTransform(args.displayId);
+            displayTransform = mWindowInfos.getDisplayTransform(args.displayId);
             mLock.unlock();
 
             MotionEvent event;
