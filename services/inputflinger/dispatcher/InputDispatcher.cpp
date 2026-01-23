@@ -4614,7 +4614,7 @@ void InputDispatcher::notifyMotion(const NotifyMotionArgs& args) {
 
     MotionEvent extEvent;
     extEvent.initialize(args.id, args.deviceId, args.source, args.displayId, INVALID_HMAC,
-                        args.action, args.actionButton, args.flags, args.edgeFlags,
+                        args.action, args.actionButton, static_cast<android::MotionFlag>(args.flags), 0 /*args.edgeFlags*/,
                         args.metaState, args.buttonState, args.classification,
                         displayTransform, args.xPrecision, args.yPrecision,
                         args.xCursorPosition, args.yCursorPosition, displayTransform,
