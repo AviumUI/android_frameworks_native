@@ -660,8 +660,6 @@ status_t BLASTBufferQueue::acquireNextBufferLocked(
     t->setSurfaceDamageRegion(mSurfaceControl, bufferItem.mSurfaceDamage);
     t->addTransactionCompletedCallback(makeTransactionCallbackThunk(), nullptr);
 
-    mSurfaceControlsWithPendingCallback.push(mSurfaceControl);
-
     if (mUpdateDestinationFrame) {
         t->setDestinationFrame(mSurfaceControl, Rect(mSize));
     } else {
@@ -713,15 +711,19 @@ status_t BLASTBufferQueue::acquireNextBufferLocked(
     if (applyTransaction) {
         // All transactions on our apply token are one-way. See comment on mAppliedLastTransaction
         status_t status = t->setApplyToken(mApplyToken).apply(false, true);
-        LOG_ALWAYS_FATAL_IF(status != OK,
-                            "[%s] acquireNextBufferLocked failed to apply transaction. status=%d",
-                            mName.c_str(), status);
+        if (status != OK) {
+            BQA_LOGE("acquireNextBufferLocked failed to apply transaction, err=%s",
+                     statusToString(status).c_str());
+            return status;
+        }
+        mSurfaceControlsWithPendingCallback.push(mSurfaceControl);
         mAppliedLastTransaction = true;
         mLastAppliedFrameNumber = bufferItem.mFrameNumber;
         mSetBufferBarrier = true;
     } else {
+        mSurfaceControlsWithPendingCallback.push(mSurfaceControl);
         if (mSetBufferBarrier) {
-          t->setBufferHasBarrier(mSurfaceControl, mLastAppliedFrameNumber);
+            t->setBufferHasBarrier(mSurfaceControl, mLastAppliedFrameNumber);
         }
         mAppliedLastTransaction = false;
     }

@@ -1105,6 +1105,7 @@ public:
                          uint32_t currentMaxAcquiredBufferCount, bool removeFromCache) override;
 
     void removeReleaseBufferCallback(const ReleaseCallbackId& callbackId);
+    void removeCallbackFunctions(const std::unordered_set<CallbackId, CallbackIdHash>& callbackIds);
 
     // For Testing Only
     static void setInstance(const sp<TransactionCompletedListener>&);

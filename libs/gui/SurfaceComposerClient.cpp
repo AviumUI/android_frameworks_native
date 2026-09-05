@@ -682,6 +682,14 @@ void TransactionCompletedListener::removeReleaseBufferCallback(
     }
 }
 
+void TransactionCompletedListener::removeCallbackFunctions(
+        const std::unordered_set<CallbackId, CallbackIdHash>& callbackIds) {
+    std::scoped_lock<std::mutex> lock(mMutex);
+    for (const auto& callbackId : callbackIds) {
+        mCallbacks.erase(callbackId);
+    }
+}
+
 SurfaceComposerClient::PresentationCallbackRAII::PresentationCallbackRAII(
         TransactionCompletedListener* tcl, int id) {
     mTcl = sp<TransactionCompletedListener>::fromExisting(tcl);
@@ -1181,6 +1189,25 @@ status_t SurfaceComposerClient::Transaction::apply(bool synchronous, bool oneWay
 
     cacheBuffers();
 
+    std::vector<layer_state_t> bufferStatesToRelease;
+    if (mMayContainBuffer) {
+        for (const auto& composerState : mState.mComposerStates) {
+            if (composerState.state.what & layer_state_t::eBufferChanged) {
+                bufferStatesToRelease.push_back(composerState.state);
+            }
+        }
+    }
+
+    std::unordered_set<CallbackId, CallbackIdHash> callbackIdsToRemove;
+    const sp<IBinder> localListener = IInterface::asBinder(mTransactionCompletedListener);
+    for (const auto& [listener, callbackInfo] : mListenerCallbacks) {
+        if (IInterface::asBinder(listener) != localListener) {
+            continue;
+        }
+        callbackIdsToRemove.insert(callbackInfo.callbackIds.begin(),
+                                   callbackInfo.callbackIds.end());
+    }
+
     if (oneWay) {
         if (synchronous) {
             ALOGE("Transaction attempted to set synchronous and one way at the same time"
@@ -1205,6 +1232,13 @@ status_t SurfaceComposerClient::Transaction::apply(bool synchronous, bool oneWay
     if (mLogCallPoints) {
         ALOG(LOG_DEBUG, LOG_SURFACE_CONTROL_REGISTRY, "Transaction %" PRIu64 " applied",
              mState.mId);
+    }
+
+    if (binderStatus != OK) {
+        for (const auto& bufferState : bufferStatesToRelease) {
+            releaseBufferIfOverwriting(bufferState);
+        }
+        mTransactionCompletedListener->removeCallbackFunctions(callbackIdsToRemove);
     }
 
     // Clear the current states and flags
